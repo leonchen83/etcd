@@ -16,11 +16,11 @@ package concurrency
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"sync"
-
 	v3 "github.com/coreos/etcd/clientv3"
 	pb "github.com/coreos/etcd/etcdserver/etcdserverpb"
+	"sync"
 )
 
 // Mutex implements the sync Locker interface with etcd
@@ -75,6 +75,39 @@ func (m *Mutex) Lock(ctx context.Context) error {
 		m.hdr = hdr
 	}
 	return werr
+}
+
+// TryLock locks the mutex will not be blocked any time. If the mutex is occupied
+// while trying to acquire the lock, this function will return an error immediately.
+func (m *Mutex) TryLock(ctx context.Context) error {
+	s := m.s
+	client := m.s.Client()
+
+	m.myKey = fmt.Sprintf("%s%x", m.pfx, s.Lease())
+	cmp := v3.Compare(v3.CreateRevision(m.myKey), "=", 0)
+	// put self in lock waiters via myKey; oldest waiter holds lock
+	put := v3.OpPut(m.myKey, "", v3.WithLease(s.Lease()))
+	// reuse key in case this session already holds the lock
+	get := v3.OpGet(m.myKey)
+	// fetch current holder to complete uncontended path with only one RPC
+	getOwner := v3.OpGet(m.pfx, v3.WithFirstCreate()...)
+	resp, err := client.Txn(ctx).If(cmp).Then(put, getOwner).Else(get, getOwner).Commit()
+	if err != nil {
+		return err
+	}
+	m.myRev = resp.Header.Revision
+	if !resp.Succeeded {
+		m.myRev = resp.Responses[0].GetResponseRange().Kvs[0].CreateRevision
+	}
+	// if no key on prefix / the minimum rev is key, already hold the lock
+	ownerKey := resp.Responses[1].GetResponseRange().Kvs
+	if len(ownerKey) == 0 || ownerKey[0].CreateRevision == m.myRev {
+		m.hdr = resp.Header
+		return nil
+	}
+
+	m.Unlock(client.Ctx())
+	return errors.New("failed to try lock.")
 }
 
 func (m *Mutex) Unlock(ctx context.Context) error {

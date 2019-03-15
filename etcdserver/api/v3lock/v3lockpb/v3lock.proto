@@ -25,6 +25,19 @@ service Lock {
     };
   }
 
+  // TryLock try acquires a distributed shared lock on a given named lock.
+  // On success, it will return a unique key that exists so long as the
+  // lock is held by the caller. This key can be used in conjunction with
+  // transactions to safely ensure updates to etcd only occur while holding
+  // lock ownership. The lock is held until Unlock is called on the key or the
+  // lease associate with the owner expires.
+  rpc TryLock(LockRequest) returns (LockResponse) {
+      option (google.api.http) = {
+        post: "/v3beta/lock/trylock"
+        body: "*"
+    };
+  }
+
   // Unlock takes a key returned by Lock and releases the hold on lock. The
   // next Lock caller waiting for the lock will then be woken up and given
   // ownership of the lock.
