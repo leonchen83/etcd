@@ -42,7 +42,12 @@ ln -s "${PWD}" "${ETCD_ROOT}"
 # Ensure we have the right version of protoc-gen-gogo by building it every time.
 # TODO(jonboulle): vendor this instead of `go get`ting it.
 go get -u github.com/gogo/protobuf/{proto,protoc-gen-gogo,gogoproto}
-go get -u golang.org/x/tools/cmd/goimports
+
+mkdir -p $GOPATH/src/golang.org/x/tools
+git clone https://go.googlesource.com/tools $GOPATH/src/golang.org/x/tools
+go build golang.org/x/tools/cmd/goimports
+
+# go get -u golang.org/x/tools/cmd/goimports
 pushd "${GOGOPROTO_ROOT}"
 	git reset --hard "${GOGO_PROTO_SHA}"
 	make install
@@ -54,6 +59,7 @@ go get -u github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger
 pushd "${GRPC_GATEWAY_ROOT}"
 	git reset --hard "${GRPC_GATEWAY_SHA}"
 	go install ./protoc-gen-grpc-gateway
+	go install ./protoc-gen-swagger
 popd
 
 for dir in ${DIRS}; do
@@ -78,6 +84,8 @@ for pb in etcdserverpb/rpc api/v3lock/v3lockpb/v3lock api/v3election/v3electionp
 	    -I"${GRPC_GATEWAY_ROOT}"/third_party/googleapis \
 	    -I"${GOGOPROTO_PATH}" \
 	    -I"${COREOS_ROOT}" \
+	    --plugin=protoc-gen-grpc-gateway=${GOBIN}/protoc-gen-grpc-gateway \
+	    --plugin=protoc-gen-swagger=${GOBIN}/protoc-gen-swagger \
 	    --grpc-gateway_out=logtostderr=true:. \
 	    --swagger_out=logtostderr=true:./Documentation/dev-guide/apispec/swagger/. \
 	    ${protobase}.proto
@@ -103,8 +111,17 @@ for pb in etcdserverpb/rpc api/v3lock/v3lockpb/v3lock api/v3election/v3electionp
 done
 rm -rf Documentation/dev-guide/apispec/swagger/etcdserver/
 
+mkdir -p $GOPATH/src/golang.org/x/net
+git clone https://go.googlesource.com/net $GOPATH/src/golang.org/x/net
+go build golang.org/x/net/idna
+
+mkdir -p $GOPATH/src/golang.org/x/text
+git clone https://go.googlesource.com/text $GOPATH/src/golang.org/x/text
+go build golang.org/x/text/unicode/norm
+go build golang.org/x/text/width
+
 # append security to swagger spec
-go get -u "github.com/hexfusion/schwag"
+# go get -u "github.com/hexfusion/schwag"
 pushd "${SCHWAG_ROOT}"
 	git reset --hard "${SCHWAG_SHA}"
 	go install .
