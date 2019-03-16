@@ -16,10 +16,11 @@ package v3lock
 
 import (
 	"context"
-
 	"github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/clientv3/concurrency"
 	"github.com/coreos/etcd/etcdserver/api/v3lock/v3lockpb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type lockServer struct {
@@ -59,7 +60,7 @@ func (ls *lockServer) TryLock(ctx context.Context, req *v3lockpb.LockRequest) (*
 	s.Orphan()
 	m := concurrency.NewMutex(s, string(req.Name))
 	if err = m.TryLock(ctx); err != nil {
-		return nil, err
+		return nil, status.Error(codes.AlreadyExists, string(req.Name))
 	}
 	return &v3lockpb.LockResponse{Header: m.Header(), Key: []byte(m.Key())}, nil
 }
