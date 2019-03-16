@@ -47,6 +47,7 @@ mkdir -p $GOPATH/src/golang.org/x/tools
 git clone https://go.googlesource.com/tools $GOPATH/src/golang.org/x/tools
 go build golang.org/x/tools/cmd/goimports
 
+mv ${PWD}/goimports ${GOBIN}
 # go get -u golang.org/x/tools/cmd/goimports
 pushd "${GOGOPROTO_ROOT}"
 	git reset --hard "${GOGO_PROTO_SHA}"
@@ -113,15 +114,14 @@ rm -rf Documentation/dev-guide/apispec/swagger/etcdserver/
 
 mkdir -p $GOPATH/src/golang.org/x/net
 git clone https://go.googlesource.com/net $GOPATH/src/golang.org/x/net
-go build golang.org/x/net/idna
-
 mkdir -p $GOPATH/src/golang.org/x/text
 git clone https://go.googlesource.com/text $GOPATH/src/golang.org/x/text
 go build golang.org/x/text/unicode/norm
 go build golang.org/x/text/width
+go build golang.org/x/net/idna
 
 # append security to swagger spec
-# go get -u "github.com/hexfusion/schwag"
+go get -u "github.com/hexfusion/schwag"
 pushd "${SCHWAG_ROOT}"
 	git reset --hard "${SCHWAG_SHA}"
 	go install .
